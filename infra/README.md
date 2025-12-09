@@ -21,12 +21,6 @@ A Terraform configuration to deploy a single EC2 instance with SSH and port 3000
 
 ### 1. Create terraform.tfvars
 
-```bash
-cp terraform.tfvars.example terraform.tfvars
-```
-
-Edit `terraform.tfvars` and set your values:
-
 ```hcl
 aws_region    = "us-east-1"
 project_name  = "my-app"
@@ -64,7 +58,7 @@ After successful deployment, you'll see:
 ### 6. Connect to your instance
 
 ```bash
-ssh -i /path/to/your-key.pem ec2-user@<PUBLIC_IP>
+ssh -i /path/to/your-key.pem ubuntu@<PUBLIC_IP>
 ```
 
 ## Clean Up

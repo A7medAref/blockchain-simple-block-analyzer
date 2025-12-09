@@ -1,6 +1,14 @@
 # Blockchain RPC Application
 
-A simple NestJS application that connects to an Ethereum RPC endpoint to fetch and analyze blockchain blocks.
+A robust NestJS application that connects to an Ethereum RPC endpoint to fetch and analyze blockchain blocks.
+
+## Architecture
+
+- **Backend:** NestJS (TypeScript)
+- **Blockchain Interaction:** `viem` library
+- **Containerization:** Docker
+- **Infrastructure:** AWS EC2 provisioned via Terraform
+- **CI/CD:** GitHub Actions for automated build and deployment
 
 ## Features
 
@@ -8,15 +16,18 @@ A simple NestJS application that connects to an Ethereum RPC endpoint to fetch a
 - Analyze transactions: count total, group by sender/receiver addresses
 - Health check endpoint
 - Comprehensive error handling
+- **Automated Deployment Pipeline** via GitHub Actions
 
 ## Setup
 
 1. Install dependencies:
+
 ```bash
 npm install
 ```
 
 2. Set environment variables (optional):
+
 ```bash
 ETH_RPC_URL=https://your-rpc-endpoint.com
 ```
@@ -37,9 +48,11 @@ npm run start:prod
 ## API Endpoints
 
 ### GET /block?blockNumber=12345678
+
 Fetches and analyzes a specific block. If `blockNumber` is not provided, fetches the latest block.
 
 **Response:**
+
 ```json
 {
   "blockNumber": "0x...",
@@ -57,12 +70,13 @@ Fetches and analyzes a specific block. If `blockNumber` is not provided, fetches
 ```
 
 ### GET /health
+
 Health check endpoint.
 
 **Response:**
+
 ```json
 {
   "status": "ok"
 }
 ```
-
