@@ -73,17 +73,18 @@ jobs:
                       docker rm $CONTAINER_NAME || true
 
                       # Clean up old images (keep only current tag)
-                      docker images $ECR_REGISTRY/$ECR_REPOSITORY --format '{{.Tag}} {{.ID}}' | grep -v $IMAGE_TAG | awk '{print $2}' | sort -u | xargs -I {} docker rmi {} --force || true
-                      docker image prune -f
+                      sudo docker images $ECR_REGISTRY/$ECR_REPOSITORY --format '{{.Tag}} {{.ID}}' | grep -v $IMAGE_TAG | awk '{print $2}' | sort -u | xargs -I {} sudo docker rmi {} --force || true
+                      sudo docker image prune -f
 
-                      aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
-                      docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+                      aws ecr get-login-password --region $AWS_REGION | sudo docker login --username AWS --password-stdin $ECR_REGISTRY
+                      sudo docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
                       # Create env file with restricted permissions
                       ENV_FILE="/home/ubuntu/blockchain-rpc/.env"
+                      touch $ENV_FILE
                       chmod 600 $ENV_FILE
-                      printf '%s' "$APP_ENV" > $ENV_FILE
+                      echo "$APP_ENV" > $ENV_FILE
 
-                      docker run -d --restart unless-stopped --name $CONTAINER_NAME --env-file $ENV_FILE -p 3000:3000 $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+                      sudo docker run -d --restart unless-stopped --name $CONTAINER_NAME --env-file $ENV_FILE -p 3000:3000 $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
 
                       rm -f $ENV_FILE
