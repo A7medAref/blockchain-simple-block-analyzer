@@ -1,0 +1,25 @@
+services:
+  backend:
+    build:
+      context: .
+      target: development
+    volumes:
+      - .:/usr/src/app
+    env_file:
+      - .env
+    scale: 1
+    networks:
+      - custody_global_network
+    stop_grace_period: 30s
+    stop_signal: SIGINT
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: "500M"
+
+networks:
+  custody_global_network:
+    external: true
+    name: custody_global_network
