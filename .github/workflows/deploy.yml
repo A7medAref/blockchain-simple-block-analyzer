@@ -1,0 +1,89 @@
+name: Build and Deploy
+
+on:
+    push:
+        branches: ["main"]
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v2
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: ${{ secrets.AWS_REGION }}
+
+            - name: Set image tag
+              run: echo "IMAGE_TAG=$(date +%Y%m%d%H%M)" >> $GITHUB_ENV
+
+            - name: Login to Amazon ECR
+              id: login-ecr
+              uses: aws-actions/amazon-ecr-login@v2
+
+            - name: Build and push Docker image
+              env:
+                  ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+                  ECR_REPOSITORY: aref/blockchain_analyzer
+                  IMAGE_TAG: ${{ env.IMAGE_TAG }}
+              run: |
+                  docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+                  docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+            - name: Deploy to EC2
+              uses: appleboy/ssh-action@v1.0.0
+              env:
+                  ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+                  ECR_REPOSITORY: aref/blockchain_analyzer
+                  IMAGE_TAG: ${{ env.IMAGE_TAG }}
+                  CONTAINER_NAME: blockchain-rpc
+                  APP_ENV: ${{ secrets.APP_ENV }}
+                  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  AWS_REGION: ${{ secrets.AWS_REGION }}
+              with:
+                  host: ${{ secrets.EC2_HOST }}
+                  username: ubuntu
+                  key: ${{ secrets.SSH_PRIVATE_KEY }}
+                  envs: ECR_REGISTRY,ECR_REPOSITORY,IMAGE_TAG,CONTAINER_NAME,APP_ENV,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_REGION
+                  script: |
+                      if ! command -v docker &> /dev/null; then
+                          echo "Docker not found. Installing Docker..."
+                          sudo apt-get update
+                          sudo apt-get install -y docker.io
+                          sudo systemctl start docker
+                          sudo systemctl enable docker
+                          sudo usermod -aG docker ubuntu
+                      fi
+
+                      if ! command -v aws &> /dev/null; then
+                          echo "AWS CLI not found. Installing AWS CLI..."
+                          sudo apt-get update
+                          sudo apt-get install -y awscli
+                      fi
+
+                      mkdir -p /home/ubuntu/blockchain-rpc
+
+                      docker stop $CONTAINER_NAME || true
+                      docker rm $CONTAINER_NAME || true
+
+                      # Clean up old images (keep only current tag)
+                      docker images $ECR_REGISTRY/$ECR_REPOSITORY --format '{{.Tag}} {{.ID}}' | grep -v $IMAGE_TAG | awk '{print $2}' | sort -u | xargs -I {} docker rmi {} --force || true
+                      docker image prune -f
+
+                      aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+                      docker pull $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+                      # Create env file with restricted permissions
+                      ENV_FILE="/home/ubuntu/blockchain-rpc/.env"
+                      chmod 600 $ENV_FILE
+                      printf '%s' "$APP_ENV" > $ENV_FILE
+
+                      docker run -d --restart unless-stopped --name $CONTAINER_NAME --env-file $ENV_FILE -p 3000:3000 $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+                      rm -f $ENV_FILE

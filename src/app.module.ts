@@ -8,7 +8,6 @@ import envVarsSchema from "./libs/config/validate-config";
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ".env",
       validationSchema: envVarsSchema,
     }),
     BlockModule,
